@@ -17,7 +17,7 @@ export const useSupabaseData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
 
-  // Removed: const { addNotification } = useNotification(); // This hook will now manage its own data fetching
+  const { addNotification } = useNotification(); // Use the notification hook
 
   // Load all data
   const loadData = async () => {
@@ -134,43 +134,6 @@ export const useSupabaseData = () => {
     if (error) throw error;
     setManualRequests(data || []);
   };
-
-  // NEW: Function to load officer-specific notifications
-  const loadOfficerNotifications = async (officerId: string) => {
-    const { data, error } = await supabase
-      .from('officer_notifications')
-      .select('*')
-      .eq('officer_id', officerId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error loading officer notifications:', error);
-      throw error;
-    }
-    return data || [];
-  };
-
-  // NEW: Function to add officer-specific notification to DB
-  const addOfficerNotification = async (notificationData: {
-    officer_id: string;
-    type: string;
-    title: string;
-    message: string;
-    link?: string;
-  }) => {
-    const { data, error } = await supabase
-      .from('officer_notifications')
-      .insert([notificationData])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error adding officer notification:', error);
-      throw error;
-    }
-    return data;
-  };
-
 
   const calculateDashboardStats = () => {
     const stats = {
@@ -640,9 +603,8 @@ export const useSupabaseData = () => {
             remarks: `Manual request approved: ${currentRequest?.input_type || 'N/A'} - ${currentRequest?.input_value || 'N/A'}`,
           });
 
-          // NEW: Add notification for the officer using the new function
-          await addOfficerNotification({
-            officer_id: officer.id,
+          // Add notification for the officer
+          addNotification({
             type: 'success',
             title: 'Manual Request Approved!',
             message: `Your request for "${currentRequest?.input_type}: ${currentRequest?.input_value}" has been approved. ${updates.credit_deducted} credits deducted. Admin response: "${updates.admin_response || 'N/A'}"`,
@@ -652,9 +614,8 @@ export const useSupabaseData = () => {
         }
       } else if (updates.status === 'rejected' && updates.approved_by) {
         const currentRequest = manualRequests.find(req => req.id === id);
-        // NEW: Add notification for the officer using the new function
-        await addOfficerNotification({
-          officer_id: currentRequest?.officer_id || '', // Ensure officer_id is available
+        // Add notification for the officer
+        addNotification({
           type: 'error',
           title: 'Manual Request Rejected!',
           message: `Your request for "${currentRequest?.input_type}: ${currentRequest?.input_value}" has been rejected. Admin response: "${updates.admin_response || 'N/A'}"`,
@@ -812,8 +773,6 @@ export const useSupabaseData = () => {
     updateManualRequest, // Expose updateManualRequest
     getOfficerEnabledAPIs,
     renewOfficerPlan, // Expose the new renewOfficerPlan function
-    loadOfficerNotifications, // NEW: Expose loadOfficerNotifications
-    addOfficerNotification, // NEW: Expose addOfficerNotification
     
     // Setters for local updates
     setOfficers,
@@ -827,4 +786,3 @@ export const useSupabaseData = () => {
     setManualRequests // Expose setter for manualRequests
   };
 };
-

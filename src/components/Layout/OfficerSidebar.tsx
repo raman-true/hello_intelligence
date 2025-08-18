@@ -2,48 +2,51 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Shield, 
-  Users, 
   Search, 
-  CreditCard, 
-  Key, 
-  Activity, 
-  Settings, 
+  Database, 
+  Link as LinkIcon, 
+  Clock, 
+  User,
   LogOut,
   Zap,
-  UserPlus,
-  DollarSign,
-  MessageSquare,
+  FileText,
+  Bell,
   X // Import X icon for close button
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useOfficerAuth } from '../../contexts/OfficerAuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNotification } from '../../contexts/NotificationContext';
 
-interface SidebarProps {
+interface OfficerSidebarProps {
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: Shield },
-  { name: 'Officers', href: '/admin/officers', icon: Users },
-  { name: 'Registrations', href: '/admin/registrations', icon: UserPlus },
-  { name: 'Query History', href: '/admin/queries', icon: Search },
-  { name: 'Credits & Billing', href: '/admin/credits', icon: CreditCard },
-  { name: 'Rate Plans', href: '/admin/rate-plans', icon: DollarSign },
-  { name: 'API Management', href: '/admin/apis', icon: Key },
-  { name: 'Live Requests', href: '/admin/live', icon: Activity },
-  { name: 'Manual Requests', href: '/admin/manual-requests', icon: MessageSquare },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Dashboard', href: '/officer/dashboard/home', icon: Shield },
+  { name: 'Free Lookups', href: '/officer/dashboard/free-lookups', icon: Search },
+  { name: 'PRO Lookups', href: '/officer/dashboard/pro-lookups', icon: Database },
+  { name: 'PRO Lookups V1', href: '/officer/dashboard/pro-lookups-v1', icon: Database },
+  { name: 'PRO Lookups V2', href: '/officer/dashboard/pro-lookups-v2', icon: Database },
+  { name: 'OSINT PRO', href: '/officer/dashboard/osint-pro', icon: Search },
+  { name: 'TrackLink', href: '/officer/dashboard/tracklink', icon: LinkIcon },
+  { name: 'History', href: '/officer/dashboard/history', icon: Clock },
+  { name: 'Account', href: '/officer/dashboard/account', icon: User },
+  { name: 'Manual Request', href: '/officer/dashboard/manual-request', icon: FileText },
+  { name: 'Notifications', href: '/officer/dashboard/notifications', icon: Bell },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }) => {
+export const OfficerSidebar: React.FC<OfficerSidebarProps> = ({ isSidebarOpen, toggleSidebar }) => {
   const location = useLocation();
-  const { logout } = useAuth();
+  const { officer, logout } = useOfficerAuth();
   const { isDark } = useTheme();
+  const { unreadCount } = useNotification();
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  if (!officer) return null;
 
   return (
     <div className={`
@@ -61,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }
           </div>
           <div>
             <h1 className="text-xl font-bold text-cyber-teal">PickMe</h1>
-            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Intelligence</p>
+            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Officer Portal</p>
           </div>
         </div>
         <button
@@ -88,7 +91,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }
                   : `${isDark ? 'text-gray-300 hover:bg-cyber-teal/10' : 'text-gray-700 hover:bg-cyber-teal/10'} hover:text-cyber-teal`
               }`}
             >
-              <Icon className="w-5 h-5" />
+              <div className="relative">
+                <Icon className="w-5 h-5" />
+                {item.name === 'Notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-neon-magenta text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               <span className="font-medium">{item.name}</span>
             </Link>
           );

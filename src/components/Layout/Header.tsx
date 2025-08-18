@@ -1,11 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Moon, Sun, User } from 'lucide-react';
+import { Bell, Moon, Sun, User, Menu } from 'lucide-react'; // Import Menu icon
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSupabaseData } from '../../hooks/useSupabaseData';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  isSidebarOpen: boolean;
+  toggleSidebar: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, toggleSidebar }) => {
   const { isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
   const { registrations, manualRequests } = useSupabaseData(); // Access manualRequests
@@ -15,15 +20,24 @@ export const Header: React.FC = () => {
   const totalPendingNotifications = pendingRegistrations + pendingManualRequests; // Combine counts
 
   return (
-    <header className={`h-16 border-b border-cyber-teal/20 flex items-center justify-between px-6 ${
+    <header className={`h-16 border-b border-cyber-teal/20 flex items-center justify-between px-4 md:px-6 ${
       isDark ? 'bg-muted-graphite' : 'bg-white'
     }`}>
       <div className="flex items-center space-x-4">
+        {/* Hamburger menu for mobile */}
+        <button
+          onClick={toggleSidebar}
+          className="p-2 rounded-lg lg:hidden transition-colors"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className={`w-6 h-6 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+        </button>
+
         <h2 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Admin Control Panel
         </h2>
-        <div className="h-6 w-px bg-cyber-teal/30" />
-        <div className="flex items-center space-x-2">
+        <div className="h-6 w-px bg-cyber-teal/30 hidden sm:block" /> {/* Hide on extra small screens */}
+        <div className="flex items-center space-x-2 hidden sm:flex"> {/* Hide on extra small screens */}
           <div className="w-3 h-3 bg-electric-blue rounded-full animate-pulse" />
           <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
             System Online
@@ -52,6 +66,7 @@ export const Header: React.FC = () => {
           className={`p-2 transition-colors ${
             isDark ? 'text-gray-300 hover:text-cyber-teal' : 'text-gray-600 hover:text-cyber-teal'
           }`}
+          aria-label="Toggle theme"
         >
           {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
@@ -61,7 +76,7 @@ export const Header: React.FC = () => {
           <div className="w-8 h-8 bg-cyber-gradient rounded-full flex items-center justify-center">
             <User className="w-4 h-4 text-white" />
           </div>
-          <div>
+          <div className="hidden sm:block"> {/* Hide on extra small screens */}
             <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
               {user?.name}
             </p>

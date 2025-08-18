@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }
             <Link
               key={item.name}
               to={item.href}
-              onClick={toggleSidebar} {/* Close sidebar on navigation click */}
+              onClick={toggleSidebar} /* Close sidebar on navigation click */
               className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                 isActive(item.href)
                   ? 'bg-cyber-teal/20 text-cyber-teal border border-cyber-teal/30 shadow-cyber'

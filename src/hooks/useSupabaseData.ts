@@ -7,7 +7,7 @@ import { addDays, isPast } from 'date-fns'; // Import date-fns utilities
 export const useSupabaseData = () => {
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [queries, setQueries] = useState<Query[]>([]);
+  const [queries, setQueries] = useState<Query[]>(([]));
   const [registrations, setRegistrations] = useState<OfficerRegistration[]>([]);
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>([]);
   const [apis, setAPIs] = useState<API[]>([]);
@@ -827,4 +827,3 @@ export const useSupabaseData = () => {
     setManualRequests // Expose setter for manualRequests
   };
 };
-

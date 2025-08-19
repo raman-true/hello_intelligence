@@ -7,7 +7,7 @@ import { addDays, isPast } from 'date-fns'; // Import date-fns utilities
 export const useSupabaseData = () => {
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [queries, setQueries] = useState<Query[]>(([]));
+  const [queries, setQueries] = useState<Query[]>([]); // Initialize as empty array
   const [registrations, setRegistrations] = useState<OfficerRegistration[]>([]);
   const [liveRequests, setLiveRequests] = useState<LiveRequest[]>([]);
   const [apis, setAPIs] = useState<API[]>([]);
@@ -26,13 +26,13 @@ export const useSupabaseData = () => {
       await Promise.all([
         loadOfficers(),
         loadTransactions(),
-        loadQueries(),
+        loadQueries(), // This will now load both regular and manual requests
         loadRegistrations(),
         loadLiveRequests(),
         loadAPIs(),
         loadRatePlans(),
         loadPlanAPIs(),
-        loadManualRequests() // Load manual requests
+        loadManualRequests() // Load manual requests separately for the manual requests page
       ]);
       calculateDashboardStats();
     } catch (error) {
@@ -63,15 +63,46 @@ export const useSupabaseData = () => {
     setTransactions(data || []);
   };
 
+  // MODIFIED: loadQueries to include approved/rejected manual requests
   const loadQueries = async () => {
-    const { data, error } = await supabase
+    // Fetch regular queries
+    const { data: regularQueries, error: queriesError } = await supabase
       .from('queries')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
-    
-    if (error) throw error;
-    setQueries(data || []);
+      .limit(100); // Keep limit for performance
+
+    if (queriesError) throw queriesError;
+
+    // Fetch approved and rejected manual requests and transform them into Query objects
+    const { data: manualRequestsData, error: manualRequestsError } = await supabase
+      .from('manual_requests')
+      .select('*, officers(id, name)') // Join to get officer name
+      .or('status.eq.approved,status.eq.rejected') // Only approved or rejected ones
+      .order('approved_at', { ascending: false }); // Order by approval/rejection time
+
+    if (manualRequestsError) throw manualRequestsError;
+
+    const transformedManualRequests: Query[] = (manualRequestsData || []).map(mr => ({
+      id: `manual-${mr.id}`, // Prefix to distinguish from regular queries
+      officer_id: mr.officer_id,
+      officer_name: mr.officers?.name || 'Unknown Officer',
+      type: 'PRO', // Manual requests are PRO
+      category: `Manual Request: ${mr.input_type}`,
+      input_data: mr.input_value,
+      source: 'Admin Processed Manual Request',
+      result_summary: mr.admin_response || (mr.status === 'approved' ? 'Manual request approved.' : 'Manual request rejected.'),
+      full_result: mr, // Store the full manual request object
+      credits_used: mr.credit_deducted || 0,
+      status: mr.status === 'approved' ? 'Success' : 'Failed', // Map status
+      created_at: mr.approved_at || mr.created_at, // Use approved_at if available, else created_at
+    }));
+
+    // Combine and sort all queries
+    const allQueries = [...(regularQueries || []), ...transformedManualRequests];
+    allQueries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    setQueries(allQueries);
   };
 
   const loadRegistrations = async () => {
@@ -169,6 +200,34 @@ export const useSupabaseData = () => {
       throw error;
     }
     return data;
+  };
+
+  // NEW: Helper function to log manual requests as queries
+  const logManualRequestAsQuery = async (manualRequest: ManualRequest) => {
+    const officerName = manualRequest.officers?.name || 'Unknown Officer';
+    const queryStatus = manualRequest.status === 'approved' ? 'Success' : 'Failed';
+
+    const queryData: Omit<Query, 'id'> = {
+      officer_id: manualRequest.officer_id,
+      officer_name: officerName,
+      type: 'PRO', // Manual requests are typically PRO services
+      category: `Manual Request: ${manualRequest.input_type}`,
+      input_data: manualRequest.input_value,
+      source: `Admin ${queryStatus === 'Success' ? 'Approved' : 'Rejected'} Manual Request`,
+      result_summary: manualRequest.admin_response || `Manual request ${queryStatus.toLowerCase()}.`,
+      full_result: manualRequest, // Store the full manual request object
+      credits_used: manualRequest.credit_deducted || 0,
+      status: queryStatus,
+      created_at: manualRequest.approved_at || new Date().toISOString(), // Use approved_at if available, else current time
+    };
+
+    const { error } = await supabase.from('queries').insert([queryData]);
+    if (error) {
+      console.error('Error logging manual request as query:', error);
+      toast.error('Failed to log manual request in query history.');
+    } else {
+      console.log(`Manual request ${manualRequest.id} logged as query with status ${queryStatus}.`);
+    }
   };
 
 
@@ -587,7 +646,7 @@ export const useSupabaseData = () => {
 
       if (error) throw error;
       
-      await loadQueries();
+      await loadQueries(); // Reload queries to include the new one
       return data;
     } catch (error: any) {
       toast.error(`Failed to add query: ${error.message}`);
@@ -649,6 +708,11 @@ export const useSupabaseData = () => {
             link: `/officer/dashboard/history`, // Link to officer's history
           });
 
+          // NEW: Log approved manual request as a query
+          if (currentRequest) {
+            await logManualRequestAsQuery({ ...currentRequest, ...updates, officers: officer }); // Pass officer data for name
+          }
+
         }
       } else if (updates.status === 'rejected' && updates.approved_by) {
         const currentRequest = manualRequests.find(req => req.id === id);
@@ -660,6 +724,12 @@ export const useSupabaseData = () => {
           message: `Your request for "${currentRequest?.input_type}: ${currentRequest?.input_value}" has been rejected. Admin response: "${updates.admin_response || 'N/A'}"`,
           link: `/officer/dashboard/history`, // Link to officer's history
         });
+
+        // NEW: Log rejected manual request as a query
+        if (currentRequest) {
+          const officer = officers.find(o => o.id === currentRequest?.officer_id);
+          await logManualRequestAsQuery({ ...currentRequest, ...updates, officers: officer }); // Pass officer data for name
+        }
       }
 
       const { error } = await supabase
@@ -670,6 +740,7 @@ export const useSupabaseData = () => {
       if (error) throw error;
       
       await loadManualRequests(); // Reload manual requests after update
+      await loadQueries(); // Reload queries to reflect the new manual request entry
       toast.success('Manual request updated successfully!');
     } catch (error: any) {
       toast.error(`Failed to update manual request: ${error.message}`);
@@ -827,3 +898,4 @@ export const useSupabaseData = () => {
     setManualRequests // Expose setter for manualRequests
   };
 };
+
